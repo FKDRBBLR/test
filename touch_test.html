@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Touch Event Test</title>
+    <style>
+        body, html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #282c34;
+            color: white;
+            font-family: sans-serif;
+        }
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 5px;
+            z-index: 1001;
+        }
+        .touch-dot {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1000;
+            mix-blend-mode: screen;
+            /* Added for centering the number */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 3px black;
+        }
+        .touch-label {
+            position: absolute;
+            color: white;
+            transform: translate(-50%, -150%);
+            font-size: 12px;
+            white-space: nowrap;
+            /* Position it outside the dot */
+            top: -10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">Touch the screen to see the event coordinates.</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const infoBox = document.getElementById('info');
+            let touchOrderCounter = 1;
+
+            function createDot(x, y, label, count, color) {
+                const dot = document.createElement('div');
+                dot.className = 'touch-dot';
+                dot.style.left = `${x}px`;
+                dot.style.top = `${y}px`;
+                dot.style.backgroundColor = color;
+
+                // Add the count number inside the dot
+                dot.textContent = count;
+
+                // Create and append the label separately to avoid being centered
+                const text = document.createElement('div');
+                text.className = 'touch-label';
+                text.textContent = label;
+                dot.appendChild(text);
+                
+                document.body.appendChild(dot);
+
+                // Remove the dot after a short time
+                setTimeout(() => {
+                    dot.remove();
+                }, 2000);
+            }
+
+            function handleTouch(e, eventType) {
+                e.preventDefault();
+
+                // If no dots are on screen, reset the counter.
+                if (document.querySelectorAll('.touch-dot').length === 0) {
+                    touchOrderCounter = 1;
+                }
+
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    const x = touch.clientX;
+                    const y = touch.clientY;
+                    
+                    const label = `${eventType} (${Math.round(x)}, ${Math.round(y)})`;
+                    infoBox.textContent = `Last Event: ${label}`;
+                    
+                    const color = eventType === 'touchstart' 
+                        ? 'rgba(255, 0, 0, 0.7)'   // Red
+                        : 'rgba(0, 150, 255, 0.7)'; // Blue
+
+                    createDot(x, y, label, touchOrderCounter, color);
+                    touchOrderCounter++;
+                }
+            }
+
+            document.body.addEventListener('touchstart', (e) => handleTouch(e, 'touchstart'), { passive: false });
+            document.body.addEventListener('touchend', (e) => handleTouch(e, 'touchend'), { passive: false });
+
+        });
+    </script>
+</body>
+</html>

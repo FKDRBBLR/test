@@ -1,0 +1,318 @@
+html {
+    height: 100%;
+    overscroll-behavior: none; /* Prevent bounce on the root element */
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    background-color: #333;
+    overscroll-behavior-y: none; /* Prevent mobile bounce/drag */
+}
+
+img {
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+#app-container {
+    width: 100%;
+    height: 100%;
+    max-width: 350px;
+    max-height: 1000px;
+    background: #000000;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column; /* Content is stacked vertically */
+    overflow-y: hidden; /* Contain vertical overflow */
+    /* padding: 20px; REMOVED */
+}
+
+.main-content {
+    /* This area will hold the main buttons, centered */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1; /* Takes up available space, pushing footer down */
+    padding: 20px; /* Added padding here instead of parent */
+    box-sizing: border-box;
+}
+
+.footer-settings {
+    /* This is the footer area for all settings */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px; /* Space between settings and toggle */
+    padding: 20px; /* Added padding here instead of parent */
+    box-sizing: border-box;
+}
+
+.choice-button {
+    background-color: white;
+    color: black;
+    width: auto;
+    padding: 15px 30px;
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0 10px;
+    border: none;
+    cursor: pointer;
+}
+
+.choice-button.pressed {
+    background-color: #ccc; /* Light gray for pressed state */
+    filter: brightness(90%);
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+#practice-toggle {
+    color: white;
+    font-size: 1em;
+    cursor: pointer;
+    user-select: none;
+}
+
+#practice-settings {
+    display: flex;
+    flex-direction: column; /* Arrange items vertically */
+    align-items: center;
+    gap: 10px; /* Space between items */
+    width: 100%;
+}
+
+.setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Space out label and input */
+    width: 60%; /* Control the width of the item */
+}
+
+.setting-item label {
+    color: white;
+    font-size: 1em;
+}
+
+.setting-item input {
+    width: 70px;
+    padding: 8px;
+    font-size: 1em;
+    text-align: center;
+    background-color: #222;
+    border: 1px solid #555;
+    color: white;
+    border-radius: 5px;
+}
+
+/* Hide browser default number input spinners */
+.setting-item input[type=number]::-webkit-inner-spin-button, 
+.setting-item input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+.setting-item input[type=number] {
+  -moz-appearance: textfield;
+}
+
+#practice-settings.hidden,
+.main-content.hidden,
+.footer-settings.hidden,
+#game-screen.hidden {
+    display: none;
+}
+
+/* Game Screen Styles */
+#game-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    position: relative;
+    background-image: url('res/roomskin_none_background.png');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.ceiling {
+    height: 175px;
+    background-color: red;
+    width: 100%; /* Simplified */
+}
+
+.exit-button {
+    position: absolute;
+    top: 40px;
+    right: 15px; /* Adjusted */
+    width: 40px;
+    height: auto;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.exit-button.pressed {
+    filter: brightness(70%);
+}
+
+.game-area {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center; /* Center the content horizontally */
+    align-items: center; /* Center the viewport vertically */
+    width: 100%; /* Simplified */
+}
+
+.scroll-viewport {
+    height: 260px; /* Calculated to fit exactly 4 boxes (4 * 65px) */
+    width: 90%;
+    overflow-y: auto;
+    margin-top: 70px;
+    /* border: 1px solid #888; Optional: to visualize the viewport */
+
+    /* Hide scrollbar for IE, Edge */
+    -ms-overflow-style: none;  
+    /* Hide scrollbar for Firefox */
+    scrollbar-width: none;  
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scroll-viewport::-webkit-scrollbar {
+    display: none;
+}
+
+/* Disable long-press context menu on all elements */
+#app-container * {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+    -ms-user-select: none; /* IE 10+ */
+    user-select: none; /* Standard */
+}
+
+.scroll-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0px; /* Space between command boxes */
+    padding: 0px 5px; /* Add some inner vertical padding */
+}
+
+.command-box {
+    width: 100%; /* Make boxes fill the viewport width */
+    height: 65px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px; /* Space between icons */
+    background-image: url('res/thanksgiving_room_header_command_box.png');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+.command-icon {
+    height: 80%;
+    width: auto;
+    margin: -2px;
+}
+
+.floor-container {
+    position: relative;
+    width: 100%;
+    height: 255px;
+    
+    /* Simple background image approach as per user instruction */
+    background-image: url('res/thanksgiving_room_container.9.png');
+    background-size: 100% 100%; /* Match width and height, stretching the image */
+    background-position: bottom;      /* Align image to the bottom */
+    background-repeat: no-repeat;   /* Do not tile the image */
+
+    /* The border is only for fallback visibility, if needed */
+    border-style: solid;
+    border-width: 0px;
+    box-sizing: border-box;
+}
+
+.button-layout-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.floor-button {
+    position: absolute;
+    width: 75px; /* Adjust button size as needed */
+    height: 75px;
+}
+
+/* --- Pig Layout (Triangles, Narrower) --- */
+/* Left Triangle (pointing down) */
+.pig-cmd1 { top: 20%; left: 28%; transform: translateX(-50%); }      /* Top point */
+.pig-cmd3 { bottom: 15%; left: 10%; }                                /* Bottom-left */
+.pig-cmd2 { bottom: 15%; left: 42%; transform: translateX(-50%); }  /* Bottom-right */
+
+/* Right Triangle (pointing up) */
+.pig-cmd6 { bottom: 15%; right: 28%; transform: translateX(50%); }   /* Bottom point */
+.pig-item1 { top: 25%; right: 40%; transform: translateX(50%); }    /* Top-left */
+.pig-item2 { top: 25%; right: 8%; }                                 /* Top-right */
+
+/* --- Rabbit Layout (Triangles, Narrower) --- */
+/* Left Triangle (pointing up) */
+.rabbit-item1 { top: 20%; left: 27%; transform: translateX(-50%); }   /* Top point */
+.rabbit-cmd8  { bottom: 20%; left: 10%; }                               /* Bottom-left */
+.rabbit-item2 { bottom: 20%; left: 40%; transform: translateX(-50%); } /* Bottom-right */
+
+/* Right Triangle (pointing down) */
+.rabbit-cmd4  { top: 20%; right: 40%; transform: translateX(50%); }   /* Top-left */
+.rabbit-cmd5  { top: 20%; right: 10%; }                                 /* Top-right */
+.rabbit-cmd7  { bottom: 20%; right: 28%; transform: translateX(50%); } /* Bottom point */
+
+.floor-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+}
+
+@media (max-width: 768px) {
+    #app-container {
+        max-width: none;
+    }
+}
+
+/* Disable mobile tap highlight */
+.choice-button, .floor-button, .exit-button, #practice-toggle {
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+    touch-action: none; /* Safari multi-touch fix */
+}
+
+.toast-message {
+    position: fixed;
+    left: 50%;
+    bottom: 20%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 1.1em;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+}
+
+.toast-message.show {
+    opacity: 1;
+}
