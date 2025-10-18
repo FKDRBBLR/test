@@ -328,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      ${!btn.item ? `data-command-for-bind="command${btn.cmd}"` : ''}></div>
             </div>`).join('');
 
-        floorContainer.innerHTML = `<img src="res/thanksgiving_room_container_top.png" class="floor-top"><div class="button-layout-container">${buttonHTML}</div>`;
+        floorContainer.innerHTML = `<img src="res/thanksgiving_room_container_top.png" class="floor-top"><div class="button-layout-container"><div class="button-cluster">${buttonHTML}</div></div>`;
 
         floorContainer.querySelectorAll('.game-command').forEach(setupButtonListeners);
         setupButtonListeners(gameScreen.querySelector('.exit-button'));
