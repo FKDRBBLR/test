@@ -253,7 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 onRoundEnd(true);
             } else {
                 if (currentGameIndex % 6 === 0) {
-                    const rowHeight = 65;
+                    const commandBox = document.querySelector('.command-box');
+                    const rowHeight = commandBox ? commandBox.offsetHeight : 65; // Fallback to 65px
                     const newTransformY = -((currentGameIndex / 6) * rowHeight);
                     animateScroll(newTransformY);
                 } else {
