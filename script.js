@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("앱 스크립트가 로드되었습니다.");
 
     // --- Constants & State ---
     const practiceToggle = document.getElementById('practice-toggle');
@@ -11,26 +10,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContent = document.querySelector('.main-content');
     const footerSettings = document.querySelector('.footer-settings');
     const gameScreen = document.getElementById('game-screen');
+    const loadingOverlay = document.getElementById('loading-overlay');
 
     let isPracticeMode = true;
     let lastValidLines, lastValidTime;
     let gamePattern = [];
     let currentGameIndex = 0;
     let gameFailed = false;
+    let currentRole = null;
+    let roundTimer = null;
+    let roundStartTime = 0;
+    let glowAnimationInterval = null;
+    let missAnimationInterval = null;
+    let scrollAnimationId = null;
+    const pigGlowFrames = Array.from({length: 10}, (_, i) => `res/thanksgiving_pig_command_glow${String(i).padStart(2, '0')}.png`);
+    const rabbitGlowFrames = Array.from({length: 10}, (_, i) => `res/thanksgiving_rabbit_command_glow${String(i).padStart(2, '0')}.png`);
+    const pigMissFrames = Array.from({length: 16}, (_, i) => `res/thanksgiving_room_miss_pig${i}.png`);
+    const rabbitMissFrames = Array.from({length: 16}, (_, i) => `res/thanksgiving_room_miss_rabbit${i}.png`);
 
-    // --- Initialization ---
-    const initializeApp = () => {
-        practiceToggle.textContent = `연습모드: 켬`;
-        practiceSettings.classList.remove('hidden');
-        const savedLines = localStorage.getItem('practiceLines') || '5';
-        const savedTime = localStorage.getItem('practiceTime') || '4';
-        linesInput.value = savedLines;
-        timeInput.value = savedTime;
-        lastValidLines = savedLines;
-        lastValidTime = savedTime;
+    // --- Keybinding State ---
+    let isBindingKey = false;
+    let commandToBind = null;
+    let keybinds = {};
+    let commandBinds = {};
+
+    // =================================================================
+    // SECTION 1: CORE HELPER FUNCTIONS
+    // =================================================================
+
+    const preloadImages = (urls) => {
+        return Promise.all(urls.map(url => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.src = url;
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+        }));
     };
 
-    // --- UI & Game Logic Functions ---
     const showToast = (message) => {
         const existingToast = document.querySelector('.toast-message');
         if (existingToast) existingToast.remove();
@@ -45,71 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     };
 
-    // --- New Event Handlers ---
-
-    function handlePointerDown(event) {
-        event.preventDefault();
-        const target = event.currentTarget;
-        target.classList.add('pressed'); // Universal pressed state for visual feedback
-
-        if (target.classList.contains('floor-button') || target.classList.contains('exit-button')) {
-            if (target.src.includes('_unpressed.png')) {
-                target.src = target.src.replace('_unpressed.png', '_pressed.png');
-            }
-        }
-    }
-
-    function handlePointerUp(event) {
-        event.preventDefault();
-        const target = event.currentTarget;
-
-        // --- Revert Visual State ---
-        if (target.classList.contains('pressed')) {
-            target.classList.remove('pressed');
-            if (target.classList.contains('floor-button') || target.classList.contains('exit-button')) {
-                if (target.src.includes('_pressed.png')) {
-                    target.src = target.src.replace('_pressed.png', '_unpressed.png');
-                }
-            }
-        }
-
-        // --- Execute Game Logic ---
-        if (target.classList.contains('exit-button')) {
-            showMainScreen();
-        } else if (target.classList.contains('choice-button')) {
-            const role = target.textContent;
-            validateAndStartGame(role);
-        } else if (target.hasAttribute('data-command')) {
-            const commandId = parseInt(target.dataset.command.replace('command', ''), 10);
-            handlePlayerInput(commandId);
-        }
-    }
-
-    const handlePlayerInput = (commandId) => {
-        if (gameFailed || currentGameIndex >= gamePattern.length) return;
-        const expectedCommand = gamePattern[currentGameIndex];
-        if (commandId === expectedCommand) {
-            const iconToUpdate = document.querySelectorAll('.command-icon')[currentGameIndex];
-            if (iconToUpdate) {
-                iconToUpdate.src = iconToUpdate.src.replace('.png', '_off.png');
-            }
-            currentGameIndex++;
-            if (currentGameIndex === gamePattern.length) {
-                showToast('성공');
-            }
-        } else {
-            showToast('실패');
-            gameFailed = true;
-        }
-    };
-
-    const showMainScreen = () => {
-        mainContent.classList.remove('hidden');
-        footerSettings.classList.remove('hidden');
-        gameScreen.classList.add('hidden');
-        gameScreen.innerHTML = '';
-    };
-
     const patternGenerator = {
         pigNormalIcons: [1, 2, 3],
         pigSpecialIcon: 6,
@@ -120,56 +73,343 @@ document.addEventListener('DOMContentLoaded', () => {
         generateFullPattern(totalCount,role=null){const p=[];const pairs=totalCount/2;const rm={'돼지':'Pig','토끼':'Rabbit'};const gr=rm[role]||null;if(gr===null){for(let i=0;i<pairs;i++){if(Math.random()<0.5){this.generatePigPair(p);}else{this.generateRabbitPair(p);}}}else if(gr==='Pig'){for(let i=0;i<pairs;i++)this.generatePigPair(p);}else if(gr==='Rabbit'){for(let i=0;i<pairs;i++)this.generateRabbitPair(p);}const fp=[];for(let i=0;i<p.length;i+=6){fp.push(p.slice(i,i+6));}return fp;}
     };
 
-    const showGameScreen = (role) => {
-        mainContent.classList.add('hidden');
-        footerSettings.classList.add('hidden');
-        gameScreen.classList.remove('hidden');
-        const lines = parseInt(linesInput.value, 10);
-        const totalIcons = lines * 6;
-        const pattern = patternGenerator.generateFullPattern(totalIcons, isPracticeMode ? role : null);
-        gamePattern = pattern.flat();
-        currentGameIndex = 0;
-        gameFailed = false;
-        const getIconPath=(id)=>{const s1=[1,2,3,6],s2=[4,5,7,8];if(s1.includes(id))return`res/thanksgiving2024_room_command${id}.png`;if(s2.includes(id))return`res/thanksgiving_room_command${id}.png`;return'';};
-        const commandBoxesHTML = pattern.map(row => `<div class="command-box">${row.map(id => `<img src="${getIconPath(id)}" class="command-icon">`).join('')}</div>`).join('');
-        gameScreen.innerHTML = `
-            <div class="ceiling"></div>
-            <img src="res/thanksgiving_room_exit_unpressed.png" class="exit-button">
-            <div class="game-area"><div class="scroll-viewport"><div class="scroll-content">${commandBoxesHTML}</div></div></div>
-            <div class="floor-container"></div>`;
-        
-        const exitButton = gameScreen.querySelector('.exit-button');
-        setupButtonListeners(exitButton);
+    // =================================================================
+    // SECTION 2: KEYBINDING FUNCTIONS
+    // =================================================================
 
-        renderFloorButtons(role);
+    const loadKeybinds = () => {
+        commandBinds = JSON.parse(localStorage.getItem('keyBinds') || '{}');
     };
 
+    const saveKeybinds = () => {
+        localStorage.setItem('keyBinds', JSON.stringify(commandBinds));
+    };
+
+    const rebuildRoleKeybinds = (role) => {
+        keybinds = {};
+        const roleBinds = commandBinds[role] || {};
+        for (const command in roleBinds) {
+            const key = roleBinds[command];
+            keybinds[key] = command;
+        }
+    };
+
+    const getDisplayKey = (key) => {
+        if (key === ' ') return 'SPACE';
+        return key.toUpperCase();
+    };
+
+    const updateKeybindDisplays = () => {
+        const roleBinds = commandBinds[currentRole] || {};
+        document.querySelectorAll('.keybind-overlay').forEach(overlay => {
+            const command = overlay.dataset.commandForBind;
+            overlay.textContent = (command && roleBinds[command]) ? getDisplayKey(roleBinds[command]) : '-';
+            overlay.classList.remove('waiting');
+        });
+    };
+
+    const startKeyBinding = (event) => {
+        event.stopPropagation();
+        const overlay = event.currentTarget;
+        const command = overlay.dataset.commandForBind;
+        if (!command) return;
+        updateKeybindDisplays();
+        isBindingKey = true;
+        commandToBind = command;
+        overlay.textContent = '...';
+        overlay.classList.add('waiting');
+    };
+
+    // =================================================================
+    // SECTION 3: GAME LOGIC & UI RENDERING
+    // =================================================================
+
+    const showMissAnimation = () => {
+        const missFrames = (currentRole === '돼지') ? pigMissFrames : rabbitMissFrames;
+        const overlays = document.querySelectorAll('.miss-overlay');
+        let frame = 0;
+
+        for (let i = currentGameIndex; i < gamePattern.length; i++) {
+            if(overlays[i]) overlays[i].classList.remove('hidden');
+        }
+
+        missAnimationInterval = setInterval(() => {
+            if (frame >= missFrames.length) {
+                clearInterval(missAnimationInterval);
+                return;
+            }
+            for (let i = currentGameIndex; i < gamePattern.length; i++) {
+                if(overlays[i]) overlays[i].src = missFrames[frame];
+            }
+            frame++;
+        }, 60);
+    };
+
+    const updateGlowIndicator = () => {
+        if (glowAnimationInterval) clearInterval(glowAnimationInterval);
+
+        const glowElement = gameScreen.querySelector('.glow-indicator');
+        if (!glowElement) return;
+
+        if (currentGameIndex >= gamePattern.length) {
+            glowElement.classList.add('hidden');
+            return;
+        }
+
+        const allIconWrappers = document.querySelectorAll('.command-icon-wrapper');
+        const targetIconWrapper = allIconWrappers[currentGameIndex];
+        if (!targetIconWrapper) {
+            glowElement.classList.add('hidden');
+            return;
+        }
+
+        const gameAreaRect = gameScreen.querySelector('.game-area').getBoundingClientRect();
+        const iconRect = targetIconWrapper.getBoundingClientRect();
+
+        const top = iconRect.top - gameAreaRect.top + (iconRect.height / 2);
+        const left = iconRect.left - gameAreaRect.left + (iconRect.width / 2);
+
+        glowElement.style.top = `${top}px`;
+        glowElement.style.left = `${left}px`;
+
+        const currentCommandId = gamePattern[currentGameIndex];
+        const isPigCommand = [1, 2, 3, 6].includes(currentCommandId);
+        const glowFrames = isPigCommand ? pigGlowFrames : rabbitGlowFrames;
+
+        glowElement.src = glowFrames[0];
+        glowElement.classList.remove('hidden');
+
+        let frame = 1;
+        glowAnimationInterval = setInterval(() => {
+            glowElement.src = glowFrames[frame];
+            frame = (frame + 1) % glowFrames.length;
+        }, 80);
+    };
+
+    const positionGlowReliably = () => {
+        const allIconWrappers = document.querySelectorAll('.command-icon-wrapper');
+        if (allIconWrappers.length === 0) {
+            requestAnimationFrame(positionGlowReliably);
+            return;
+        }
+        const targetIconWrapper = allIconWrappers[0];
+        const iconRect = targetIconWrapper.getBoundingClientRect();
+
+        if (iconRect.width === 0 || iconRect.height === 0) {
+            requestAnimationFrame(positionGlowReliably);
+            return;
+        }
+
+        updateGlowIndicator();
+    };
+
+    const startNewRound = () => {
+        if (roundTimer) clearTimeout(roundTimer);
+        showGameScreen(currentRole);
+    };
+
+
+    const onRoundEnd = (isSuccess) => {
+        if (roundTimer) clearTimeout(roundTimer);
+        gameFailed = true;
+
+        if (isSuccess) {
+            if (glowAnimationInterval) clearInterval(glowAnimationInterval);
+            const glowElement = gameScreen.querySelector('.glow-indicator');
+            if (glowElement) glowElement.classList.add('hidden');
+            showToast('성공');
+            const scrollContent = gameScreen.querySelector('.scroll-content');
+            if (scrollContent) scrollContent.style.display = 'none';
+        } else {
+            showToast('실패');
+        }
+
+        setTimeout(startNewRound, 1000);
+    };
+
+    const handlePlayerInput = (commandId) => {
+        if (gameFailed) return;
+
+        const timeLimit = parseInt(timeInput.value, 10) * 1000;
+        if (performance.now() - roundStartTime > timeLimit) {
+            onRoundEnd(false);
+            return;
+        }
+
+        const expectedCommand = gamePattern[currentGameIndex];
+        if (commandId === expectedCommand) {
+            const iconToUpdate = document.querySelectorAll('.command-icon')[currentGameIndex];
+            if (iconToUpdate) {
+                iconToUpdate.src = iconToUpdate.src.replace('.png', '_off.png');
+                iconToUpdate.classList.add('popping');
+                iconToUpdate.addEventListener('animationend', () => {
+                    iconToUpdate.classList.remove('popping');
+                }, { once: true });
+            }
+            currentGameIndex++;
+
+            if (currentGameIndex === gamePattern.length) {
+                onRoundEnd(true);
+            } else {
+                if (currentGameIndex % 6 === 0) {
+                    const rowHeight = 65;
+                    const newTransformY = -((currentGameIndex / 6) * rowHeight);
+                    animateScroll(newTransformY);
+                } else {
+                    updateGlowIndicator();
+                }
+            }
+        } else {
+            showMissAnimation();
+            onRoundEnd(false);
+        }
+    };
+
+    const animateScroll = (targetY) => {
+        const scrollContent = gameScreen.querySelector('.scroll-content');
+        if (!scrollContent) return;
+
+        scrollContent.style.transition = 'none';
+
+        const startY = parseFloat(scrollContent.style.transform.replace('translateY(', '')) || 0;
+        const duration = 300; // ms
+        let startTime = null;
+
+        const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+
+        function animationStep(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const progress = timestamp - startTime;
+            const percentage = Math.min(progress / duration, 1);
+            const easedPercentage = easeInOutCubic(percentage);
+
+            const currentY = startY + (targetY - startY) * easedPercentage;
+            scrollContent.style.transform = `translateY(${currentY}px)`;
+
+            updateGlowIndicator();
+
+            if (progress < duration) {
+                requestAnimationFrame(animationStep);
+            } else {
+                scrollContent.style.transition = ''; // Re-enable for next time
+            }
+        }
+
+        requestAnimationFrame(animationStep);
+    };
+    
     const renderFloorButtons = (role) => {
         const floorContainer = gameScreen.querySelector('.floor-container');
         if (!floorContainer) return;
-        let buttonHTML = '';
-        if (role === '돼지') {
-            buttonHTML = `<div class="button-layout-container"><img src="res/thanksgiving2024_room_command1_unpressed.png" class="floor-button pig-cmd1" data-command="command1"><img src="res/thanksgiving2024_room_command2_unpressed.png" class="floor-button pig-cmd2" data-command="command2"><img src="res/thanksgiving2024_room_command3_unpressed.png" class="floor-button pig-cmd3" data-command="command3"><img src="res/thanksgiving_room_command_item.png" class="floor-button pig-item1 item"><img src="res/thanksgiving_room_command_item.png" class="floor-button pig-item2 item"><img src="res/thanksgiving2024_room_command6_unpressed.png" class="floor-button pig-cmd6" data-command="command6"></div>`;
-        } else if (role === '토끼') {
-            buttonHTML = `<div class="button-layout-container"><img src="res/thanksgiving_room_command8_unpressed.png" class="floor-button rabbit-cmd8" data-command="command8"><img src="res/thanksgiving_room_command_item.png" class="floor-button rabbit-item1 item"><img src="res/thanksgiving_room_command_item.png" class="floor-button rabbit-item2 item"><img src="res/thanksgiving_room_command4_unpressed.png" class="floor-button rabbit-cmd4" data-command="command4"><img src="res/thanksgiving_room_command5_unpressed.png" class="floor-button rabbit-cmd5" data-command="command5"><img src="res/thanksgiving_room_command7_unpressed.png" class="floor-button rabbit-cmd7" data-command="command7"></div>`;
-        }
-        floorContainer.innerHTML = `<img src="res/thanksgiving_room_container_top.png" class="floor-top">` + buttonHTML;
 
-        floorContainer.querySelectorAll('[data-command]').forEach(setupButtonListeners);
+        let buttons = (role === '돼지') ? [
+            { cmd: 1, layout: 'pig-cmd1' }, { cmd: 2, layout: 'pig-cmd2' }, { cmd: 3, layout: 'pig-cmd3' },
+            { cmd: 'item1', layout: 'pig-item1', item: true }, { cmd: 'item2', layout: 'pig-item2', item: true },
+            { cmd: 6, layout: 'pig-cmd6' }
+        ] : [
+            { cmd: 8, layout: 'rabbit-cmd8' }, { cmd: 'item1', layout: 'rabbit-item1', item: true }, { cmd: 'item2', layout: 'rabbit-item2', item: true },
+            { cmd: 4, layout: 'rabbit-cmd4' }, { cmd: 5, layout: 'rabbit-cmd5' }, { cmd: 7, layout: 'rabbit-cmd7' }
+        ];
+
+        const getButtonImagePath = (cmd, role, item) => {
+            if (item) return 'res/thanksgiving_room_command_item.png';
+            const prefix = (role === '돼지') ? 'thanksgiving2024' : 'thanksgiving';
+            return `res/${prefix}_room_command${cmd}_unpressed.png`;
+        };
+
+        const buttonHTML = buttons.map(btn => `
+            <div class="button-wrapper ${btn.layout}">
+                <img src="${getButtonImagePath(btn.cmd, role, btn.item)}" 
+                     class="floor-button ${btn.item ? 'item' : ''} ${btn.item ? '' : 'game-command'}" 
+                     ${!btn.item ? `data-command="command${btn.cmd}"` : ''}>
+                <div class="keybind-overlay ${btn.item ? 'hidden' : ''}" 
+                     ${!btn.item ? `data-command-for-bind="command${btn.cmd}"` : ''}></div>
+            </div>`).join('');
+
+        floorContainer.innerHTML = `<img src="res/thanksgiving_room_container_top.png" class="floor-top"><div class="button-layout-container">${buttonHTML}</div>`;
+
+        floorContainer.querySelectorAll('.game-command').forEach(setupButtonListeners);
+        setupButtonListeners(gameScreen.querySelector('.exit-button'));
+        floorContainer.querySelectorAll('.keybind-overlay:not(.hidden)').forEach(overlay => overlay.addEventListener('click', startKeyBinding));
+        updateKeybindDisplays();
     };
 
-    function setupButtonListeners(button) {
-        button.addEventListener('pointerdown', handlePointerDown);
-        button.addEventListener('pointerup', handlePointerUp);
-        // If the pointer leaves the button while pressed, release the visual state
-        button.addEventListener('pointerleave', (e) => {
-            if(e.currentTarget.classList.contains('pressed')) {
-                handlePointerUp(e);
-            }
-        });
-    }
+    const showMainScreen = () => {
+        if (glowAnimationInterval) clearInterval(glowAnimationInterval);
+        if (missAnimationInterval) clearInterval(missAnimationInterval);
+        if (roundTimer) clearTimeout(roundTimer);
+        mainContent.classList.remove('hidden');
+        footerSettings.classList.remove('hidden');
+        gameScreen.classList.add('hidden');
+        gameScreen.innerHTML = '';
+    };
 
-    // --- Event Listeners Setup ---
+    const showGameScreen = (role) => {
+        if (glowAnimationInterval) clearInterval(glowAnimationInterval);
+        if (missAnimationInterval) clearInterval(missAnimationInterval);
+        currentRole = role;
+        rebuildRoleKeybinds(role);
+        mainContent.classList.add('hidden');
+        footerSettings.classList.add('hidden');
+        gameScreen.classList.remove('hidden');
+        
+        const lines = parseInt(linesInput.value, 10);
+        const pattern = patternGenerator.generateFullPattern(lines * 6, isPracticeMode ? role : null);
+        gamePattern = pattern.flat();
+        currentGameIndex = 0;
+        gameFailed = false;
+
+        const getIconPath=(id)=>{const s1=[1,2,3,6],s2=[4,5,7,8];if(s1.includes(id))return`res/thanksgiving2024_room_command${id}.png`;if(s2.includes(id))return`res/thanksgiving_room_command${id}.png`;return'';};
+        const commandBoxesHTML = pattern.map(row => `
+            <div class="command-box">
+                ${row.map(id => `
+                    <div class="command-icon-wrapper">
+                        <img src="${getIconPath(id)}" class="command-icon">
+                        <img class="miss-overlay hidden">
+                    </div>
+                `).join('')}
+            </div>
+        `).join('');
+        
+        gameScreen.innerHTML = `
+            <div class="ceiling">
+                <div class="timer-container">
+                    <img src="res/thanksgiving_room_time_bar.png" class="timer-bg">
+                    <div class="timer-gauge-wrapper">
+                        <div class="timer-gauge"></div>
+                    </div>
+                    <img src="res/thanksgiving_room_time_gauge.png" class="timer-overlay">
+                    <img src="res/thanksgiving_room_time_icon.png" class="timer-icon">
+                </div>
+            </div>
+            <img src="res/thanksgiving_room_exit_unpressed.png" class="exit-button">
+            <div class="game-area">
+                <img class="glow-indicator hidden">
+                <div class="scroll-viewport"><div class="scroll-content">${commandBoxesHTML}</div></div>
+            </div>
+            <div class="floor-container"></div>`;
+        
+        renderFloorButtons(role);
+        positionGlowReliably();
+
+        if (roundTimer) clearTimeout(roundTimer);
+        const timeLimit = parseInt(timeInput.value, 10);
+        roundStartTime = performance.now();
+        roundTimer = setTimeout(() => {
+            if (gameFailed) return;
+            onRoundEnd(false);
+        }, timeLimit * 1000);
+
+        const gauge = gameScreen.querySelector('.timer-gauge');
+        if (gauge) {
+            gauge.style.transition = 'none';
+            gauge.style.width = '100%';
+            gauge.offsetHeight; 
+            gauge.style.transition = `width ${timeLimit}s linear`;
+            gauge.style.width = '0%';
+        }
+    };
+
     const validateAndStartGame = (role) => {
         const lines = parseInt(linesInput.value,10), time = parseInt(timeInput.value,10);
         if(lines>=1000||time>=1000){alert("줄 또는 시간 값은 999를 초과할 수 없습니다.");return;}
@@ -178,26 +418,120 @@ document.addEventListener('DOMContentLoaded', () => {
         showGameScreen(role);
     };
 
+    // =================================================================
+    // SECTION 4: EVENT HANDLERS & LISTENERS
+    // =================================================================
+
+    function handlePress(event) {
+        const target = event.currentTarget;
+        target.classList.add('pressed');
+        if (target.classList.contains('floor-button') && target.src.includes('_unpressed.png')) {
+            target.src = target.src.replace('_unpressed.png', '_pressed.png');
+        }
+    }
+
+    function handleRelease(event) {
+        const target = event.currentTarget;
+        target.classList.remove('pressed');
+        if (target.classList.contains('floor-button') && target.src.includes('_pressed.png')) {
+            target.src = target.src.replace('_pressed.png', '_unpressed.png');
+        }
+    }
+
+    function handleActivation(event) {
+        const target = event.currentTarget;
+        if (target.classList.contains('exit-button')) {
+            showMainScreen();
+        } else if (target.hasAttribute('data-command')) {
+            const commandId = parseInt(target.dataset.command.replace('command', ''), 10);
+            handlePlayerInput(commandId);
+        } else if (target.classList.contains('choice-button')) {
+            validateAndStartGame(target.textContent);
+        }
+    }
+
+    function setupButtonListeners(button) {
+        button.addEventListener('mousedown', handlePress);
+        button.addEventListener('mouseup', (e) => {
+            handleRelease(e);
+            handleActivation(e);
+        });
+        button.addEventListener('mouseleave', handleRelease);
+        
+        button.addEventListener('touchstart', handlePress, { passive: true });
+        button.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleRelease(e);
+            handleActivation(e);
+        });
+        button.addEventListener('touchcancel', handleRelease);
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.repeat) return;
+
+        if (isBindingKey) {
+            event.preventDefault();
+            const key = event.key.toLowerCase();
+            
+            if (!commandBinds[currentRole]) commandBinds[currentRole] = {};
+            const roleBinds = commandBinds[currentRole];
+
+            for (const cmd in roleBinds) {
+                if (roleBinds[cmd] === key) {
+                    delete roleBinds[cmd];
+                    break;
+                }
+            }
+
+            delete roleBinds[commandToBind];
+            roleBinds[commandToBind] = key;
+
+            saveKeybinds();
+            rebuildRoleKeybinds(currentRole);
+            updateKeybindDisplays();
+            isBindingKey = false;
+            commandToBind = null;
+
+        } else if (!gameScreen.classList.contains('hidden')) {
+            const command = keybinds[event.key.toLowerCase()];
+            if (command) {
+                event.preventDefault();
+                const buttonImg = gameScreen.querySelector(`[data-command="${command}"]`);
+                if (buttonImg) {
+                    handlePress({ currentTarget: buttonImg });
+                }
+            }
+        }
+    });
+
+    document.addEventListener('keyup', (event) => {
+        if (!isBindingKey && !gameScreen.classList.contains('hidden')) {
+            const command = keybinds[event.key.toLowerCase()];
+            if (command) {
+                event.preventDefault();
+                const buttonImg = gameScreen.querySelector(`[data-command="${command}"]`);
+                if (buttonImg) {
+                    handleRelease({ currentTarget: buttonImg });
+                    handleActivation({ currentTarget: buttonImg });
+                }
+            }
+        }
+    });
+
     choiceButtons.forEach(setupButtonListeners);
 
     practiceToggle.addEventListener('click', () => alert('개발중..'));
 
-    // --- Fullscreen Logic ---
     function toggleFullScreen() {
         if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-                alert(`전체화면 모드를 시작할 수 없습니다: ${err.message}`);
-            });
+            document.documentElement.requestFullscreen().catch(err => { alert(`전체화면 모드를 시작할 수 없습니다: ${err.message}`); });
         } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
+            if (document.exitFullscreen) { document.exitFullscreen(); }
         }
     }
-
     fullscreenToggle.addEventListener('click', toggleFullScreen);
 
-    // --- Input Validation ---
     const setupInputValidation = (input, lastValidValueRef, storageKey) => {
         input.addEventListener('focus', () => { lastValidValueRef.value = input.value; });
         input.addEventListener('input', () => { let v=input.value; if(v==='0')input.value=''; else if(v.length>3)input.value=v.slice(0,3); });
@@ -208,6 +542,60 @@ document.addEventListener('DOMContentLoaded', () => {
         setupInputValidation(linesInput, { get:()=>lastValidLines, set:(v)=>lastValidLines=v }, 'practiceLines');
         setupInputValidation(timeInput, { get:()=>lastValidTime, set:(v)=>lastValidTime=v }, 'practiceTime');
     }
+
+    // =================================================================
+    // SECTION 5: APP INITIALIZATION
+    // =================================================================
+
+    const imagesToPreload = [
+        'res/roomskin_none_background.png',
+        'res/thanksgiving_room_command_item.png',
+        'res/thanksgiving_room_container_top.png',
+        'res/thanksgiving_room_container.9.png',
+        'res/thanksgiving_room_exit_unpressed.png',
+        'res/thanksgiving_room_header_command_box.png',
+        'res/thanksgiving_room_time_bar.png',
+        'res/thanksgiving_room_time_gauge.png',
+        'res/thanksgiving_room_time_icon.png',
+        // Pig Commands
+        'res/thanksgiving2024_room_command1.png', 'res/thanksgiving2024_room_command1_off.png', 'res/thanksgiving2024_room_command1_pressed.png', 'res/thanksgiving2024_room_command1_unpressed.png',
+        'res/thanksgiving2024_room_command2.png', 'res/thanksgiving2024_room_command2_off.png', 'res/thanksgiving2024_room_command2_pressed.png', 'res/thanksgiving2024_room_command2_unpressed.png',
+        'res/thanksgiving2024_room_command3.png', 'res/thanksgiving2024_room_command3_off.png', 'res/thanksgiving2024_room_command3_pressed.png', 'res/thanksgiving2024_room_command3_unpressed.png',
+        'res/thanksgiving2024_room_command6.png', 'res/thanksgiving2024_room_command6_off.png', 'res/thanksgiving2024_room_command6_pressed.png', 'res/thanksgiving2024_room_command6_unpressed.png',
+        // Rabbit Commands
+        'res/thanksgiving_room_command4.png', 'res/thanksgiving_room_command4_off.png', 'res/thanksgiving_room_command4_pressed.png', 'res/thanksgiving_room_command4_unpressed.png',
+        'res/thanksgiving_room_command5.png', 'res/thanksgiving_room_command5_off.png', 'res/thanksgiving_room_command5_pressed.png', 'res/thanksgiving_room_command5_unpressed.png',
+        'res/thanksgiving_room_command7.png', 'res/thanksgiving_room_command7_off.png', 'res/thanksgiving_room_command7_pressed.png', 'res/thanksgiving_room_command7_unpressed.png',
+        'res/thanksgiving_room_command8.png', 'res/thanksgiving_room_command8_off.png', 'res/thanksgiving_room_command8_pressed.png', 'res/thanksgiving_room_command8_unpressed.png',
+        ...pigGlowFrames,
+        ...rabbitGlowFrames,
+        ...pigMissFrames,
+        ...rabbitMissFrames
+    ];
+
+    const initializeApp = async () => {
+        loadKeybinds();
+        try {
+            await preloadImages(imagesToPreload);
+        } catch (error) {
+            console.error("이미지 로딩 실패:", error);
+        }
+        loadingOverlay.classList.add('hidden');
+
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+            fullscreenToggle.style.visibility = 'hidden';
+        }
+
+        practiceToggle.textContent = `연습모드: 켬`;
+        practiceSettings.classList.remove('hidden');
+        const savedLines = localStorage.getItem('practiceLines') || '5';
+        const savedTime = localStorage.getItem('practiceTime') || '4';
+        linesInput.value = savedLines;
+        timeInput.value = savedTime;
+        lastValidLines = savedLines;
+        lastValidTime = savedTime;
+    };
 
     initializeApp();
 });
