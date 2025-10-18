@@ -163,7 +163,7 @@ img {
 
 .game-area {
     position: relative;
-    flex-grow: 1;
+    height: 49%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -171,7 +171,7 @@ img {
 }
 
 .scroll-viewport {
-    height: 260px;
+    height: 62.9%;
     width: 90%;
     overflow-y: hidden;
     margin-top: 70px;
@@ -203,7 +203,7 @@ img {
     transform: scale(1);
   }
   50% {
-    transform: scale(0.9);
+    transform: scale(0.875);
   }
   100% {
     transform: scale(1);

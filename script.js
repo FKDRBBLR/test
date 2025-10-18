@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let glowAnimationInterval = null;
     let missAnimationInterval = null;
     let scrollAnimationId = null;
+    let nextRoundTimeoutId = null;
     const pigGlowFrames = Array.from({length: 10}, (_, i) => `res/thanksgiving_pig_command_glow${String(i).padStart(2, '0')}.png`);
     const rabbitGlowFrames = Array.from({length: 10}, (_, i) => `res/thanksgiving_rabbit_command_glow${String(i).padStart(2, '0')}.png`);
     const pigMissFrames = Array.from({length: 16}, (_, i) => `res/thanksgiving_room_miss_pig${i}.png`);
@@ -224,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('실패');
         }
 
-        setTimeout(startNewRound, 1000);
+        nextRoundTimeoutId = setTimeout(startNewRound, 1000);
     };
 
     const handlePlayerInput = (commandId) => {
@@ -338,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
         if (roundTimer) clearTimeout(roundTimer);
+        if (nextRoundTimeoutId) clearTimeout(nextRoundTimeoutId);
         mainContent.classList.remove('hidden');
         footerSettings.classList.remove('hidden');
         gameScreen.classList.add('hidden');
