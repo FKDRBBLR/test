@@ -584,11 +584,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         loadingOverlay.classList.add('hidden');
 
-        const userAgentDisplay = document.getElementById('user-agent-display');
-        if (userAgentDisplay) {
-            userAgentDisplay.textContent = navigator.userAgent;
-        }
-
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         if (isIOS) {
             fullscreenToggle.style.visibility = 'hidden';
